@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/vadgl
+vadgl.so
+vadgl.dylib
+vadgl.dll
+vadgl.a
+vadgl.lib
+vadgl-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
