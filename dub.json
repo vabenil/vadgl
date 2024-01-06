@@ -6,17 +6,9 @@
 	"authors": [ "Victor Abenil Fernandez Rodriguez"],
 	"copyright": "Copyright © 2023, Victor Abenil Fernandez Rodriguez",
 	"dependencies": {
-		"bindbc-opengl": "~>1.1.0",
-		"bindbc-sdl": "~>1.4.2"
+		"bindbc-opengl": "~>1.1.0"
 	},
-	"subConfigurations": {
-		"bindbc-sdl": "staticBC"
-	},
-	"libs": [
-		"SDL2"
-	],
 	"versions": [
-		"SDL_205",
 		"GL_33"
 	]
 }
