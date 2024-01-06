@@ -27,7 +27,7 @@ import std.meta                 : AliasSeq;
 
 import std.string               : toStringz;
 
-import std.algorithm            : endsWith;
+import std.algorithm            : endsWith, among;
 // OpenGL bindings
 import bindbc.opengl;
 
@@ -964,12 +964,27 @@ struct GLUniform
         return GLResult!void();
     }
 
+    GLResult!void set(T)(T value)
+    if (T.stringof.among("float", "int", "uint"))
+    {
+        T[1] val = value; // not great but just easier
+        return gl_set_uniform(this.loc, 1, val);
+    }
+
     GLResult!void set_mat4(int n, const(float)[] mat, bool normalized=false)
         => gl_set_uniform_mat4(this.loc, n, mat, normalized);
 
     // Will copy as much as possible of mat
     GLResult!void set_mat4(const(float)[] mat, bool normalized=false)
         => gl_set_uniform_mat4(this.loc, mat, normalized);
+
+    GLResult!void set_v(int N, T)(T[N] vec, int n = 1)
+    if (T.stringof.among("float", "int", "uint") && N <= 4)
+        => gl_set_uniform(this.loc, n, vec);
+
+    GLResult!void set_v(int N, T)(T[] vec, int n = 1)
+    if (T.stringof.among("float", "int", "uint") && N <= 4)
+        => gl_set_uniform!N(this.loc, n, vec);
 }
 
 GLResult!void gl_set_uniform_mat4(int loc, const(float[]) mat, bool normalized=false)
@@ -982,38 +997,38 @@ GLResult!void gl_set_uniform_mat4(int loc, int n, const(float[]) mat, bool norma
 in(mat.length >= 16 * n)
     => gl_wrap!glUniformMatrix4fv(loc, n, normalized, mat.ptr).to_glresult();
 
-// To make this work I have to flatten mat into an array and pass that
-/* GLResult!void gl_set_uniform_mat4(int loc, int n, const(float)[4][] mat, bool normalized=false) */
-/* in(mat.length > 4 * n) */
-/*     => gl_wrap!glUniformMatrix4fv(loc, n, cast(ubyte)normalized, mat[0].ptr).to_glresult(); */
+private static immutable string[string] shortBaseTypeNames = [
+    "float": "f",
+    "int": "i",
+    "uint": "ui"
+];
 
-template gl_set_uniform(T)
+GLResult!void  gl_set_uniform(int N, T)(int loc, int n, T[N] v)
+if (T.stringof.among("float", "int", "uint") && N <= 4)
 {
-    alias TInfo = TypeInfoGLSL!T;
+    enum string shortT = shortBaseTypeNames[T.stringof];
 
-    enum string kind = TInfo[0];
+    return gl_wrap!(mixin("glUniform"~N.to!string~shortT~"v"))(loc, n, v.ptr)
+            .to_glresult();
+}
 
-    static assert(kind != "invalid");
+GLResult!void gl_set_uniform(int N, T)(int loc, int n, T[] v)
+if (T.stringof.among("float", "int", "uint") && N <= 4)
+in(v.length >= n * N)
+{
+    enum string shortT = shortBaseTypeNames[T.stringof];
 
-    alias BT = TInfo[1];
-    enum size_t N = TInfo[2];
-    enum size_t M = TInfo[3];
+    return gl_wrap!(mixin("glUniform"~N.to!string~shortT~"v"))(loc, n, v.ptr)
+            .to_glresult();
+}
 
-    GLResult!void set(BT[] vec...)
-    {
-        T v_cp = v[]; // copy v since it's immutable
-        mixin("glUniform"~N.to!string~TC~"v(loc, 1, v_cp.ptr);");
-    }
+GLResult!void  gl_set_uniform(int N, T)(int loc, T[N][] v)
+if (T.stringof.among("float", "int", "uint") && N <= 4)
+{
+    enum string shortT = shortBaseTypeNames[T.stringof];
 
-    static if (kind == "vector" || kind == "matrix")
-    void set(in BT[N] vec)
-    {
-        BT[N] v_cp = v[]; // copy v since it's immutable
-        mixin("glUniform"~N.to!string~TC~"v(loc, 1, v_cp.ptr);");
-    }
-
-    static if (kind == "matrix")
-    void set(BT[N][M] mat);
+    return gl_wrap!(mixin("glUniform"~N.to!string~shortT~"v"))(loc, v.length, v.ptr)
+            .to_glresult();
 }
 
 /* void gl_set_uniform(T, size_t N)(in T[N] vec) */
@@ -1024,7 +1039,8 @@ template gl_set_uniform(T)
 
 // gl_set_uniform!mat4(0, mpv_mat, true)
 
-private enum __algo = q{
+// NOTE: This is only an idea
+private enum __vadgl_idea = q{
     // TODO: perhaps also assign here the vertex buffer
     // for each of these attributes
     struct Vertex
