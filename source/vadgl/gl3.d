@@ -18,6 +18,13 @@ version `VADGL_DisableChecks`:
 - Do not overcomplicate anything
 - Think about OpenGL support fucking later
 +/
+
+/*
+   // There is the phobos bug: https://issues.dlang.org/show_bug.cgi?id=23818
+   // this can be reproduced by placing the imports in the following order.
+   // Yes, this sucks, and the bug is honestly stupid
+
+   
 module vadgl.gl3;
 
 import std.bitmanip             : bitfields;
@@ -34,6 +41,24 @@ import bindbc.opengl;
 import vadgl.types;
 import vadgl.error;
 import result;
+*/
+module vadgl.gl3;
+
+import std.conv                 : to;
+import std.format               : format;
+import std.meta                 : AliasSeq;
+
+// OpenGL bindings
+import bindbc.opengl;
+import vadgl.types;
+import vadgl.error;
+
+import std.string               : toStringz;
+
+import std.algorithm            : endsWith, among;
+
+import result;
+
 
 version (VADGL_EnableChecks) {
     enum bool checkGLCalls = true;
@@ -285,6 +310,7 @@ private string enum_to_str(T)(T f) if (is(T == enum))
 
 struct Shader
 {
+    import std.bitmanip             : bitfields;
     enum Type {
         VERTEX           =  GL_VERTEX_SHADER,
         GEOMETRY         =  GL_GEOMETRY_SHADER,
@@ -494,6 +520,7 @@ struct Shader
 
 struct Program
 {
+    import std.bitmanip             : bitfields;
     // Nothing here throws
     nothrow:
 
@@ -997,16 +1024,29 @@ GLResult!void gl_set_uniform_mat4(int loc, int n, const(float[]) mat, bool norma
 in(mat.length >= 16 * n)
     => gl_wrap!glUniformMatrix4fv(loc, n, normalized, mat.ptr).to_glresult();
 
-private static immutable string[string] shortBaseTypeNames = [
-    "float": "f",
-    "int": "i",
-    "uint": "ui"
-];
+
+private template shortBaseTypeNames(T)
+{
+    private enum string type_name = T.stringof;
+    static assert(type_name.among("float", "int", "uint"));
+
+    static if (type_name == "float" || type_name == "int")
+        enum string shortBaseTypeNames = [type_name[0]];
+    else
+        enum string shortBaseTypeNames = "ui";
+}
+
+// Doesn't compile on ldc 1.35 
+/* private static immutable string[string] shortBaseTypeNames = [ */
+/*     "float": "f", */
+/*     "int": "i", */
+/*     "uint": "ui" */
+/* ]; */
 
 GLResult!void  gl_set_uniform(int N, T)(int loc, int n, T[N] v)
 if (T.stringof.among("float", "int", "uint") && N <= 4)
 {
-    enum string shortT = shortBaseTypeNames[T.stringof];
+    enum string shortT = shortBaseTypeNames!(T);
 
     return gl_wrap!(mixin("glUniform"~N.to!string~shortT~"v"))(loc, n, v.ptr)
             .to_glresult();
@@ -1016,7 +1056,7 @@ GLResult!void gl_set_uniform(int N, T)(int loc, int n, T[] v)
 if (T.stringof.among("float", "int", "uint") && N <= 4)
 in(v.length >= n * N)
 {
-    enum string shortT = shortBaseTypeNames[T.stringof];
+    enum string shortT = shortBaseTypeNames!(T);
 
     return gl_wrap!(mixin("glUniform"~N.to!string~shortT~"v"))(loc, n, v.ptr)
             .to_glresult();
@@ -1025,7 +1065,7 @@ in(v.length >= n * N)
 GLResult!void  gl_set_uniform(int N, T)(int loc, T[N][] v)
 if (T.stringof.among("float", "int", "uint") && N <= 4)
 {
-    enum string shortT = shortBaseTypeNames[T.stringof];
+    enum string shortT = shortBaseTypeNames!(T);
 
     return gl_wrap!(mixin("glUniform"~N.to!string~shortT~"v"))(loc, v.length, v.ptr)
             .to_glresult();
