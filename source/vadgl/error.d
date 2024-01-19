@@ -3,8 +3,8 @@ module vadgl.error;
 import std.traits       : EnumMembers;
 import std.format       : format;
 
-import vadgl.types;
 import result;
+import vadgl.types;
 
 @safe @nogc nothrow
 void copy_to_buffer(string str, scope char[] buffer)
