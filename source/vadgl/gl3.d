@@ -60,7 +60,10 @@ import std.algorithm            : endsWith, among;
 import result;
 
 
-version (VADGL_EnableChecks) {
+version (VADGL_DisableChecks) {
+    enum bool checkGLCalls = false;
+}
+else version (VADGL_EnableChecks) {
     enum bool checkGLCalls = true;
 }
 else debug {
@@ -241,7 +244,7 @@ template gl_call(alias fnc)
             }
             assumeWontThrow(writeln(fnc_name, "(", args_str, ")"));
         }
-        // Should work even with if `T` is void
+        // Should work even if `T` is void
         return fnc(args);
     }
 }
@@ -347,14 +350,14 @@ struct Shader
     nothrow
     static GLResult!Shader create_shader(string name, Type type)
     {
-        auto res = gl_wrap!glCreateShader(type);
+        auto res = gl_create_shader(type);
         // error handling
         switch(res.error.error_flag)
         {
-            case GLInternalError.NO_ERROR:
+            case GLError.Flag.NO_ERROR:
                 if (res.value == 0) goto default;
                 break;
-            case GLInternalError.INVALID_ENUM:
+            case GLError.Flag.INVALID_ENUM:
                 return GLResult!Shader(
                     GLError(
                         GLError.Flag.INVALID_ENUM,
@@ -438,12 +441,9 @@ struct Shader
         if (!this.is_created)
             return glresult(GLError(GLError.Flag.INVALID_SHADER));
 
-        immutable(char*) src_ptr = src.ptr;
-        int len = cast(int)src.length;
-
-        if (auto res = gl_wrap!glShaderSource(this.id_, 1, &src_ptr, &len))
+        if (auto res = gl_wrap!glShaderSource(this.id, src))
             // This is way longer than I expected
-            return res.error.to_glerror().append_fnc().glresult();
+            return res.error.append_fnc().glresult();
 
         this.is_source_set_ = true;
         return GLError(GLError.Flag.NO_ERROR).glresult();
@@ -1135,6 +1135,21 @@ template glattribute(T)
     GLAttributeInfo glattribute(uint loc, size_t offset_, bool normalized=false)
         => GLAttributeInfo(loc, type, N * M, offset_, normalized);
 }
+
+nothrow
+GLResult!uint gl_create_shader(Shader.Type type)
+        => gl_wrap!glCreateShader(type).to_glresult();
+
+nothrow
+GLResult!void gl_shader_source(uint id, int count, const(char**) strings, const(int*) lengths)
+    => gl_wrap!glShaderSource(id, count, strings, lengths).to_glresult();
+
+nothrow
+GLResult!void gl_shader_source(uint id, const(char*) src_c_str, int length)
+    => gl_shader_source(id, 1, &src_c_str, &length);
+
+nothrow GLResult!void gl_shader_source(uint id, const(char[]) src)
+    => gl_shader_source(id, src.ptr, cast(int)src.length);
 
 /*
     NOTE:
