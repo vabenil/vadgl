@@ -18,30 +18,6 @@ version `VADGL_DisableChecks`:
 - Do not overcomplicate anything
 - Think about OpenGL support fucking later
 +/
-
-/*
-   // There is the phobos bug: https://issues.dlang.org/show_bug.cgi?id=23818
-   // this can be reproduced by placing the imports in the following order.
-   // Yes, this sucks, and the bug is honestly stupid
-
-   
-module vadgl.gl3;
-
-import std.bitmanip             : bitfields;
-import std.conv                 : to;
-import std.format               : format;
-import std.meta                 : AliasSeq;
-
-import std.string               : toStringz;
-
-import std.algorithm            : endsWith, among;
-// OpenGL bindings
-import bindbc.opengl;
-
-import vadgl.types;
-import vadgl.error;
-import result;
-*/
 module vadgl.gl3;
 
 import std.conv                 : to;
@@ -441,7 +417,7 @@ struct Shader
         if (!this.is_created)
             return glresult(GLError(GLError.Flag.INVALID_SHADER));
 
-        if (auto res = gl_wrap!glShaderSource(this.id, src))
+        if (auto res = gl_shader_source(this.id, src))
             // This is way longer than I expected
             return res.error.append_fnc().glresult();
 
