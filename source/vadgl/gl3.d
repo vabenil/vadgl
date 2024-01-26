@@ -156,6 +156,12 @@ template to_gl_type(T)
         mixin("enum GLType to_gl_type = GLType.%s;".format(T.stringof.toUpper()));
 }
 
+/***
+    Returns whether `param` is a parameter that can be passed to `glGetShaderIv`
+
+    Params:
+        param - A GLParam or GLenum represting an parameter for a Shader or Program
+***/
 @safe nothrow pure
 bool is_shader_param(GLParam param)
 {
@@ -166,6 +172,12 @@ bool is_shader_param(GLParam param)
     );
 }
 
+/***
+    Returns whether `param` is a parameter that can be passed to `glGetProgramiv`
+
+    Params:
+        param - A parameter for a Shader or Program
+***/
 @safe nothrow pure
 bool is_program_param(GLParam param)
 {
@@ -176,12 +188,14 @@ bool is_program_param(GLParam param)
     );
 }
 
+/// Clear all opengl error
 @trusted @nogc nothrow
 private static void opengl_clear_errors()
 {
     while(glGetError() != GL_NO_ERROR) {}
 }
 
+/// Return opengl error
 @trusted nothrow
 private GLInternalError opengl_get_error()
 {
@@ -190,10 +204,12 @@ private GLInternalError opengl_get_error()
     return GLInternalError.NO_ERROR;
 }
 
-/+
-For debugging purposes. Use gl_wrap instead unless you you are sure your OpenGL
-function call cannot cause a GLError.
-+/
+/+++
+    Run OpenGL function and log it on version `VADGL_DebugGLCalls`
+    Use `gl_wrap` instead for error handling.
+
+    Returns: The result of the opengl function call
++++/
 template gl_call(alias fnc)
 {
     private import std.traits   : isSomeFunction, ReturnType;
@@ -225,13 +241,11 @@ template gl_call(alias fnc)
     }
 }
 
-/+
-    Run opengl command and return result of `glGetError()`.
-
-    Returns:
-        glError if `fnc`'s return type is void or
-        Result!(
-+/
+/+++
+    Run opengl function `fnc_` and check for OpenGL errors
+    Returns: `Result!(GLInternalError, T`) where `T` is the return type of
+    `fnc_`
++++/
 template gl_wrap(alias fnc_)
 {
     private import std.traits   : isSomeFunction, ReturnType;
@@ -269,10 +283,14 @@ template gl_wrap(alias fnc_)
     }
 }
 
-/*
-    - this affects compilation times for big enums(>50 members)
-    - Doesn't work if enum has duplicates
-*/
+/+++
+    Return string representation of enum member.
+    For example `enum_to_str(MyEnum.A)` return string `"A"`
+
+    NOTES:
+        - this affects compilation times for big enums(>50 members)
+        - Doesn't work if enum has duplicates
++++/
 @safe @nogc nothrow
 private string enum_to_str(T)(T f) if (is(T == enum))
 {
@@ -287,6 +305,10 @@ private string enum_to_str(T)(T f) if (is(T == enum))
     }
 }
 
+
+/+++
+    Abstraction over shader
++++/
 struct Shader
 {
     import std.bitmanip             : bitfields;
@@ -323,6 +345,9 @@ struct Shader
 
     // This doesn't throw but can't be marked as nothrow bc of `format`
     // Wrapper to glCreateShader
+    /+++
+        Create OpenGL shader
+    +++/
     nothrow
     static GLResult!Shader create_shader(string name, Type type)
     {
@@ -348,6 +373,10 @@ struct Shader
     }
 
     //  TODO: Might want to add file and line as template params
+    /+++
+        Create OpenGL shader and call `gl_shader_source` to set source in
+        shader object
+    +++/
     nothrow
     static GLResult!Shader from_src(string name, Type type, string src)
     {
@@ -379,7 +408,7 @@ struct Shader
         return glresult(shader);
     }
 
-    /+
+    /+++
         Intialize shader with values.
 
         If you have already successfully called `glCreateShader`,
@@ -389,7 +418,7 @@ struct Shader
         ```
 
         To actually create a shader use `Shader.create_shader`
-    +/
+    +++/
     @safe @nogc nothrow
     this
     (string name, Type type, uint id, bool created=false,
@@ -404,9 +433,7 @@ struct Shader
     }
 
     /+
-        PERHAPS TODO (Althought it might not be necessary):
-        - Perhaps put this outside of Shader
-        - and overload it
+        Set shader source to `src`
     +/
     // Kind of Wrapper to glShaderSource
     @trusted nothrow
@@ -426,11 +453,11 @@ struct Shader
     }
 
     /* @safe */
-    /+
-        Wrapper to glCompileShader.
+    /+++
+        compile shader and check whether compilation is successful
 
-        This also calls get_param to validte compilation
-    +/
+        Returns: GLResult!void with error info if an OpenGL error occurred
+    +++/
     @trusted nothrow
     GLResult!void compile()
     {
@@ -463,7 +490,7 @@ struct Shader
         return GLError().glresult();
     }
 
-    // Wrap glShaderSource and glCompileShader
+    /// ditto
     @safe nothrow
     GLResult!void compile_src(in string src)
     {
@@ -476,7 +503,7 @@ struct Shader
         return GLError().glresult();
     }
 
-    // NOTE: this functions might be redundant, also it throws
+    /// Same as `Shader.compile` except this function can throw
     @safe
     GLResult!void compile_f(in string file_name)
     {
@@ -530,7 +557,11 @@ struct Program
         this.is_created_ = created;
     }
 
-    // Wrapper to glCreateProgram
+    /+++
+        Creates program
+        Returns: `GLResult!Program` returns valid program or 
+        `GLError.Flag.UNKNOWN_ERROR` if an error ocurred
+    +++/
     @trusted
     static GLResult!Program create_program(string program_name)
     {
@@ -545,12 +576,29 @@ struct Program
         return program.glresult();
     }
 
+    /+++
+        Use null program. same as `gl_program_use(0)`
+    +++/
     @safe
     static void use_empty() => cast(void)Program().use();
 
     // Wrapper to glAttachShader
     // TODO: maybe check GL_ATTACHED_SHADERS to check if number of shaders
     // attached is what we expect
+    /+++
+        attach Shader `s` to `this` Program
+        Returns: `GLResult!void` with `GLError`:
+            - `GLError.Flag.NO_ERROR`:
+                If attached correctly and there are no errors
+            - `GLError.Flag.INVALID_PROGRAM`:
+                if program hasn't been initialized properly
+            - `GLError.Flag.INVALID_SHADER`:
+                if shader hasn't been initialized
+                if shader hasn't been compiled succesfully
+            - `GLError.Flag.SHADER_ALREADY_ATTACHED`:
+                if Shader `s` has already been attached to program
+
+    +++/
     @trusted
     GLResult!void attach(ref Shader s)
     {
@@ -581,8 +629,17 @@ struct Program
         }
     }
 
-    // Wrapper to glLinkProgram
-    // TODO: finsih fixing glresult here
+    // TODO: Maybe check extra cases
+    /+++
+        Link shaders attached to program
+        Returns: `GLResult!void` with `GLError`:
+            - `GLError.Flag.NO_ERROR`:
+                if no opengl errors occurred
+            - `GLError.Flag.INVALID_PROGRAM`:
+                if program is valid
+            - `GLError.Flag.UNKNOWN_ERROR`:
+                if something unexpected went wrong
+    +++/
     @trusted
     GLResult!void link()
     {
@@ -618,6 +675,12 @@ struct Program
     // Wrapper to glValidateProgram
     // TODO:
     //  - [Add error hint] take care of potential geometry shader shenanigans later
+    /+++
+        validate program and call `get_param` to check if validation was
+        successful
+
+        Returns: `GLResult!void` with GLError with error information if any
+    +++/
     @trusted
     GLResult!void validate()
     {
@@ -644,7 +707,7 @@ struct Program
         return glresult(GLError.NO_ERROR);
     }
 
-    // Wrapper to glUseProgram
+    /// Wrapper to glUseProgram
     @trusted
     GLResult!void use() inout
     {
@@ -657,6 +720,12 @@ struct Program
     // Cool convinience function
     // Might be cool to use a variadic template here with `ref Shader`
     // this solutions is ok thought
+    /+++
+        Compile all `shaders`, attach each to program
+        link and validate program.
+
+        Returns: `GLResult!void` with error information if any
+    +++/
     @safe
     GLResult!void prepare_and_attach(Shader*[] shaders ...)
     {
@@ -675,18 +744,22 @@ struct Program
 
     // Wrapper to glUniformLocation
     // If loc is negative then uniform `u_name` is not an active uniform
+    /+++
+        Wrapper to `gl_get_uniform_location`
+
+        Returns: `GLResult!int` with location to uniform and error information
+        if any
+    +++/
     @trusted
-    int get_uniform_loc(string u_name) inout
-    /* out(result; result > 0) */
+    GLResult!int get_uniform_loc(string u_name) inout /* out(result; result > 0) */
     {
         import std.string   : toStringz;
-        // TODO: add checks and stuff
-        int loc = trust!glGetUniformLocation(this.id, u_name.toStringz);
+        GLResult!int loc_result = gl_get_uniform_location(this.id, u_name);
         /* if (loc < 0) { */
         /*     // TODO: use `std.logger` and put this in a version block */
         /*     stderr.writeln("[GL_WARNING]: "~u_name~" is not an active uniform name"); */
         /* } */
-        return loc;
+        return loc_result;
     }
 }
 
@@ -951,9 +1024,9 @@ struct GLUniform
 {
     int loc; // TODO: perhaps remove `loc`
 
-    static GLResult!GLUniform from_name(string name, int program_id)
+    static GLResult!GLUniform from_name(string name, uint program_id)
     {
-        auto res = gl_get_uniform_location(name, program_id);
+        auto res = gl_get_uniform_location(program_id, name);
         if (res)
             return GLResult!GLUniform(res.error); 
         return GLResult!GLUniform(GLUniform(res.value));
@@ -961,7 +1034,7 @@ struct GLUniform
 
     GLResult!void set_location(string name, int program_id)
     {
-        auto res = gl_get_uniform_location(name, program_id);
+        auto res = gl_get_uniform_location(program_id, name);
         if (res)
             return res.error.glresult();
         return GLResult!void();
@@ -1219,7 +1292,7 @@ static GLResult!int gl_get_attribute_location(string name, int program_id)
     => gl_wrap!glGetAttribLocation(program_id, name.toStringz).to_glresult();
 
 nothrow
-static GLResult!int gl_get_uniform_location(string name, int program_id)
+static GLResult!int gl_get_uniform_location(uint program_id, string name)
     => gl_wrap!glGetUniformLocation(program_id, name.toStringz).to_glresult();
 
 // TODO: Replace GLEnum with my own `GLPrimitive` type
