@@ -442,8 +442,8 @@ struct Shader
 
         // Assume source is already set
         // should never happen
-        if (auto res = gl_wrap!glCompileShader(this.id))
-            return res.error.to_glerror().append_fnc().glresult();
+        if (auto res = gl_compile_shader(this.id))
+            return res.error.append_fnc().glresult();
 
         GLResult!bool compile_res = this.get_param!(GLParam.COMPILE_STATUS);
         if (compile_res)
@@ -535,7 +535,7 @@ struct Program
     static GLResult!Program create_program(string program_name)
     {
         // Shouldn't be able to fail,
-        int prog_id = gl_call!glCreateProgram();
+        int prog_id = gl_create_program();
 
         if (prog_id == 0) { // something went wrong
             return GLResult!Program(GLError(GLError.Flag.UNKNOWN_ERROR));
@@ -559,12 +559,12 @@ struct Program
         }
 
         // program.id should be a valid OpenGL program at this point
-        switch(gl_wrap!glAttachShader(this.id_, s.id_).error.error_flag) {
-            case GLInternalError.NO_ERROR:
+        switch(gl_attach_shader(this.id, s.id).error.error_flag) {
+            case GLError.Flag.NO_ERROR:
                 this.is_attached_ = true;
                 return glresult(GLError.NO_ERROR);
 
-            case GLInternalError.INVALID_OPERATION:
+            case GLError.Flag.INVALID_OPERATION:
             {
                 if (!s.is_created) {
                     return glresult(GLError("glAttachShader", GLError.Flag.INVALID_SHADER));
@@ -590,11 +590,11 @@ struct Program
             return glresult(GLError.INVALID_PROGRAM);
         }
 
-        auto res = gl_wrap!glLinkProgram(this.id_);
+        auto res = gl_link_program(this.id);
         switch(res.error.error_flag)
         {
-            case GLInternalError.NO_ERROR: break;
-            case GLInternalError.INVALID_OPERATION:
+            case GLError.Flag.NO_ERROR: break;
+            case GLError.Flag.INVALID_OPERATION:
                 // TODO: Do something else here probably
                 return glresult(GLError.UNKNOWN_ERROR); 
             default:
@@ -617,8 +617,7 @@ struct Program
 
     // Wrapper to glValidateProgram
     // TODO:
-    //  - ~~Hmm, maybe I shouldn't throw in here and return bool instead~~ I think I fixed this
-    //  - take care of potential geometry shader shenanigans later
+    //  - [Add error hint] take care of potential geometry shader shenanigans later
     @trusted
     GLResult!void validate()
     {
@@ -626,6 +625,7 @@ struct Program
             return glresult(GLError(GLError.Flag.INVALID_PROGRAM));
 
         int validated = 0;
+        // TODO: Make gl_validate_program function
         // Shouldn't raise any errors
         gl_call!glValidateProgram(this.id);
 
@@ -1126,6 +1126,22 @@ GLResult!void gl_shader_source(uint id, const(char*) src_c_str, int length)
 
 nothrow GLResult!void gl_shader_source(uint id, const(char[]) src)
     => gl_shader_source(id, src.ptr, cast(int)src.length);
+
+nothrow
+GLResult!void gl_compile_shader(uint id)
+    => gl_wrap!glCompileShader(id).to_glresult();
+
+nothrow
+uint gl_create_program()
+    => gl_call!glCreateProgram(); // doesn't generate GLError
+
+nothrow
+GLResult!void gl_attach_shader(uint program_id, uint shader_id)
+    => gl_wrap!glAttachShader(program_id, shader_id).to_glresult();
+
+nothrow
+GLResult!void gl_link_program(uint program_id)
+    => gl_wrap!glLinkProgram(program_id).to_glresult();
 
 /*
     NOTE:
