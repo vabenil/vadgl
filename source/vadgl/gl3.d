@@ -412,7 +412,7 @@ struct Shader
                 return GLResult!Shader(
                     GLError(
                         GLError.Flag.INVALID_ENUM,
-                        "Type "~type.to_char_buff()~"is not a valid shader type"
+                        ": Type "~type.to_char_buff()~" is not a valid shader type"
                     )
                 );
             default:
