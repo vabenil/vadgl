@@ -283,6 +283,36 @@ template gl_wrap(alias fnc_)
     }
 }
 
+@safe @nogc nothrow pure
+char[10] uint_to_char_buff(uint x)
+{
+    import std.conv:    toChars;
+    char[10] buff = 0;
+    auto char_range = x.toChars();
+    assert(char_range.length < buff.length);
+
+    int i = 0;
+    foreach (char c; char_range) {
+        buff[i++] = c;
+    }
+    return buff;
+}
+
+@safe @nogc nothrow pure
+private bool member_in_enum(T)(T value) if (is(T == enum))
+{
+    import std.traits   : EnumMembers;
+    switch(value)
+    {
+        static foreach(member; EnumMembers!T) {
+            case member:
+                return true;
+        }
+        default:
+            return false;
+    }
+}
+
 /+++
     Return string representation of enum member.
     For example `enum_to_str(MyEnum.A)` return string `"A"`
@@ -290,19 +320,38 @@ template gl_wrap(alias fnc_)
     NOTES:
         - this affects compilation times for big enums(>50 members)
         - Doesn't work if enum has duplicates
+        - Doesn't work if `value` is not a valid enum member
 +++/
-@safe @nogc nothrow
-private string enum_to_str(T)(T f) if (is(T == enum))
+@safe @nogc nothrow pure
+private string enum_to_str(T)(T value) if (is(T == enum))
 {
+    import std.conv     : to;
     import std.traits   : EnumMembers;
 
-    final switch(f)
+    final switch(value)
     {
         static foreach(member; EnumMembers!T) {
             case member:
                 return member.stringof;
         }
     }
+}
+
+// None of `Shader.Type` members are more than 8 characters, but reserve 32 bytes
+// anyway. Better safe than sorry
+@safe @nogc nothrow pure
+private immutable(char)[32] to_char_buff(Shader.Type type)
+{
+    char[32] buff = 0;
+    if (type.member_in_enum()) {
+        string str = type.enum_to_str();
+        assert(str.length <= 32);  // Should never happen
+        buff[0..str.length] = str[];
+    }
+    else {
+        buff[0..10] = uint_to_char_buff(cast(uint)type);
+    }
+    return buff;
 }
 
 
@@ -312,6 +361,7 @@ private string enum_to_str(T)(T f) if (is(T == enum))
 struct Shader
 {
     import std.bitmanip             : bitfields;
+    // TODO: Move this to `types.d`
     enum Type {
         VERTEX           =  GL_VERTEX_SHADER,
         GEOMETRY         =  GL_GEOMETRY_SHADER,
@@ -362,7 +412,7 @@ struct Shader
                 return GLResult!Shader(
                     GLError(
                         GLError.Flag.INVALID_ENUM,
-                        "Type "~type.enum_to_str()~"is not a valid shader type"
+                        "Type "~type.to_char_buff()~"is not a valid shader type"
                     )
                 );
             default:
