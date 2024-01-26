@@ -55,17 +55,9 @@ struct GLError
     // ALL here be safe!
     @safe nothrow:
 
-    enum Flag
+    enum Flag : uint
     {
-        // 1 to 1 mappings to general OpenGL errros
-        NO_ERROR = 0,
-        INVALID_ENUM,
-        INVALID_VALUE,
-        INVALID_OPERATION,
-
-        STACK_OVERFLOW,
-        STACK_UNDERFLOW,
-
+        NO_ERROR            = GLInternalError.NO_ERROR,
         // Custom errors
         // For glBind<Buffer|VertexArray>
         INVALID_TARGET,
@@ -84,6 +76,15 @@ struct GLError
         PROGRAM_VALIDATION_ERROR,
 
         INVALID_PARAMETER,
+
+        // 1 to 1 mappings to general OpenGL errros
+        INVALID_ENUM        = GLInternalError.INVALID_ENUM,
+        INVALID_VALUE       = GLInternalError.INVALID_VALUE,
+        INVALID_OPERATION   = GLInternalError.INVALID_OPERATION,
+
+        STACK_OVERFLOW      = GLInternalError.STACK_OVERFLOW,
+        STACK_UNDERFLOW     = GLInternalError.STACK_UNDERFLOW,
+
         UNKNOWN_ERROR = int.max
     }
 
