@@ -158,7 +158,7 @@ enum GLFuncEnum : string
 
 // This should all work with OpenGL version 1.1 or above so no need for condition
 // TODO: make this support multiple OpenGL versions
-enum GLInternalError
+enum GLInternalError : uint
 {
     NO_ERROR                       = GL_NO_ERROR,
     INVALID_ENUM                   = GL_INVALID_ENUM,
