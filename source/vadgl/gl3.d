@@ -63,7 +63,7 @@ private {
 
 GLType to_gltype(GLenum type) => cast(GLType)type;
 
-template toDType(GLType type) // make this work with vector and matrix types
+private template toDType(GLType type) // make this work with vector and matrix types
 {
     mixin("alias toDType = %s;".format(type.to!string().toLower()));
 }
@@ -286,7 +286,7 @@ template gl_wrap(alias fnc_)
 }
 
 @safe @nogc nothrow pure
-char[10] uint_to_char_buff(uint x)
+private char[10] uint_to_char_buff(uint x)
 {
     import std.conv:    toChars;
     char[10] buff = 0;
@@ -875,7 +875,8 @@ GLError get_param
     return err;
 }
 
-alias ParamReturnTypes = AliasSeq!(
+// TODO: This can be simiplified with a compile time associative array
+private alias ParamReturnTypes = AliasSeq!(
     Shader.Type, // SHADER_TYPE
     bool, // DELETE_STATUS
     bool, // COMPILE_STATUS
@@ -1304,7 +1305,7 @@ GLResult!void gl_vertex_attributeI_conf
 
 // Maps to `glEnableVertexAttribArray` or `glEnableVertexArrayAttrib`
 /*
-NOTE:
+NOTE (Out of date):
     This function calls `glBindVertexArray` when running on versions < gl45
     Can generate errors:
         - `GL_INVALID_OPERATION`:
