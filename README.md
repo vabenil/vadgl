@@ -76,8 +76,8 @@ program.use().throw_on_error();
 With this we create and compile shaders `vert_sh` and `frag_sh`, then attach
 them to the program `program`, and finally link and validate the program.
 
-All with error checking! Here take a look at a shader compilation error using
-this code:
+All of this with error handling. In case of a compilation error you will get an
+error message like this:
 ```
 [GL_ERROR]: vadgl.gl3.Shader.compile: SHADER_COMPILATION_ERROR: Failed to compile `vertex` shader
         HINT: Run get_info_log() to get extra information
