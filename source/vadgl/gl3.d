@@ -22,7 +22,7 @@ module vadgl.gl3;
 
 import std.conv                 : to;
 import std.format               : format;
-import std.meta                 : AliasSeq;
+import std.meta                 : AliasSeq, allSatisfy;
 
 // OpenGL bindings
 import bindbc.opengl;
@@ -355,6 +355,9 @@ private immutable(char)[32] to_char_buff(Shader.Type type)
 }
 
 
+private enum isShader(T) = is(T == Shader);
+private alias isShaderSeq(Args...) = allSatisfy!(isShader, Args);
+
 /+++
     Abstraction over shader
 +++/
@@ -650,7 +653,7 @@ struct Program
 
     +++/
     @trusted
-    GLResult!void attach(ref Shader s)
+    GLResult!void attach(Shader s)
     {
         if (!this.is_created) {
             return GLError(GLError.Flag.INVALID_PROGRAM).glresult();
@@ -677,6 +680,15 @@ struct Program
             default:
                 return glresult(GLError.UNKNOWN_ERROR);
         }
+    }
+
+    @trusted
+    GLResult!void attach(Args...)(Args shaders) if (Args.length > 1 && isShaderSeq!Args)
+    {
+        foreach (shader; shaders) {
+            if (auto res = this.attach(shader)) return res;
+        }
+        return GLError.NO_ERROR.glresult();
     }
 
     // TODO: Maybe check extra cases
@@ -780,7 +792,9 @@ struct Program
     GLResult!void prepare_and_attach(Shader*[] shaders ...)
     {
         foreach (Shader *shader; shaders) {
-            if (auto res = shader.compile()) return res.error.append_fnc().glresult();
+            if (shader.is_compiled) {
+                if (auto res = shader.compile()) return res.error.append_fnc().glresult();
+            }
 
             if (auto res = this.attach(*shader)) return res.error.append_fnc().glresult();
         }
@@ -1433,7 +1447,7 @@ if (is(T == Shader) || is(T == Program))
 
     if (log_size) {
         // TODO: all this could be done in a single buffer.
-        char[2048] log_buff = void; log_buff[] = '\0';
+        char[2048] log_buff = '\0';
 
         size_t head_len = log_buff[].sformat("Error on \"%s\" shader\n", self.name).length;
         string tail = "\n[LOG SIZE LIMIT REACHED]\0";
