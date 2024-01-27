@@ -53,13 +53,15 @@ enum MAX_GL_VARIABLE_NAME = 256;
 
 auto trust(alias fnc, Args...)(Args args) @trusted => fnc(args);
 
-bool is_integral(GLType type) pure => (type >= GLType.BYTE && type <= GLType.UINT);
-bool is_floating(GLType type) pure => (GLType.FLOAT || GLType.HALF_FLOAT|| GLType.DOUBLE);
-bool is_base_type(GLType type) pure => (is_integral(type) || is_floating(type));
+private {
+    bool is_integral(GLType type) pure => (type >= GLType.BYTE && type <= GLType.UINT);
+    bool is_floating(GLType type) pure => (GLType.FLOAT || GLType.HALF_FLOAT|| GLType.DOUBLE);
+    bool is_base_type(GLType type) pure => (is_integral(type) || is_floating(type));
 
-bool is_vector(GLType type) pure => type.to!string[0..$-1].endsWith("VEC");
+    bool is_vector(GLType type) pure => type.to!string[0..$-1].endsWith("VEC");
+}
 
-GLType to_gl_type(GLenum type) => cast(GLType)type;
+GLType to_gltype(GLenum type) => cast(GLType)type;
 
 template toDType(GLType type) // make this work with vector and matrix types
 {
@@ -132,7 +134,7 @@ private template TypeInfoGLSL(T)
 }
 
 // TODO: make this work with matrix types
-template to_gl_type(T)
+template to_gltype(T)
 {
     import std.string   : toUpper;
 
@@ -150,10 +152,10 @@ template to_gl_type(T)
         static immutable string type_name = BT.stringof.toUpper;
         enum string dims = N.to!string;
         enum string prefix = (type_name[0] == 'F') ? "" : type_name[0..1];
-        mixin("enum GLType to_gl_type = GLType."~prefix~"VEC"~dims~";");
+        mixin("enum GLType to_gltype = GLType."~prefix~"VEC"~dims~";");
     }
     else // base type
-        mixin("enum GLType to_gl_type = GLType.%s;".format(T.stringof.toUpper()));
+        mixin("enum GLType to_gltype = GLType.%s;".format(T.stringof.toUpper()));
 }
 
 /***
@@ -1242,7 +1244,7 @@ template glattribute(T)
     enum size_t N = TInfo[2];
     enum size_t M = TInfo[3];
 
-    static immutable GLType type = to_gl_type!BT;
+    static immutable GLType type = to_gltype!BT;
 
     @safe @nogc nothrow pure
     GLAttributeInfo glattribute(uint loc, size_t offset_, bool normalized=false)
