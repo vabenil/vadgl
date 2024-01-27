@@ -185,10 +185,10 @@ public alias GLResult = ResultPartial!GLError;
 
 // ditto
 // TODO: auto ref prob doesn't make sense here. Just `T` is better
-GLResult!T glresult(T)(auto ref T val) => GLResult!T(val);
+GLResult!T glresult(T)(auto ref T val) if (!is(T == GLError)) => GLResult!T(val);
 // TODO: put this inside `result.d` and check if Error is a proper
 // error type
-GLResult!void glresult(GLError err) => GLResult!void(err);
+GLResult!T glresult(T = void)(GLError err) if (!is(T == GLError)) => GLResult!T(err);
 
 // ditto
 GLError.Flag to_glerror_flag(GLInternalError internal) pure
