@@ -14,6 +14,7 @@ the library do not allocate (The ones that do work with strings and there are
 - Does not allocate (in `release` and `VADGL_DisableChecks`)
 - Debugging all OpenGL calls with (`VADGL_DebugGLCalls`)
 - Works with any bindings
+- Shader, Program, VBO, VAO, Attribute and Uniform abstractions
 
 ### Why?
 OpenGL is not known for having the best error handling. This library provides
@@ -44,32 +45,53 @@ message like this:
 ```
 [GL_ERROR]: glCreateShader: INVALID_ENUM
 ```
-#### Even easier!
-Using abstractions `Shader` and `Program` abstractions you can create a progam
+#### Using abstractions
+Using `Shader` and `Program` abstractions you can create a Program
 like so:
 ```d
 string vertex_source = ... // vertex source
 string frag_source = ... //  fragment source
 
 Shader vert_sh, frag_sh;
-// Shaders created with error handling and everything!
-vert_sh = Shader.from_src("vertex", Shader.Type.VERTEX, vertex_source).throw_on_error();
-frag_sh = Shader.from_src("frag", Shader.Type.FRAGMENT, frag_source).throw_on_error();
+vert_sh = Shader.from_src("vertex", Shader.Type.VERTEX, vertex_source) .throw_on_error();
+frag_sh = Shader.from_src("frag", Shader.Type.FRAGMENT, frag_source) .throw_on_error();
 
-Program program = Program.create_program("program").throw_on_error();
+program = Program.create_program("program").throw_on_error();
 
-// Compile, prepare, attach and link shaders to program
-if (auto res = program.prepare_and_attach(&vert_sh, &frag_sh)) {
-    // Log error message
-    stderr.writeln(res.error.to_error_msg());
-    // print info log for shaders if there's an error
-    stderr.writeln(vert_sh.get_info_log().throw_on_error());
-    stderr.writeln(frag_sh.get_info_log().throw_on_error());
-    assert(0);
+// Compile shaders
+foreach (shader; [&vert_sh, &frag_sh]) {
+    shader.compile().unwrap_or_else((res) {
+        stderr.writeln(res.error.to_error_msg()); // Print compilation error
+        // Get compilation error message if any
+        stderr.writeln(vert_sh.get_info_log().throw_on_error);
+        assert(0);
+    });
 }
-// Use Program
+program.attach(vert_sh, frag_sh).throw_on_error(); // attach
+program.link().throw_on_error(); // link
+program.validate().throw_on_error(); // validate
+
 program.use().throw_on_error();
 ```
+With this we create and compile shaders `vert_sh` and `frag_sh`, then attach
+them to the program `program`, and finally link and validate the program.
+
+All with error checking! Here take a look at a shader compilation error using
+this code:
+```
+[GL_ERROR]: vadgl.gl3.Shader.compile: SHADER_COMPILATION_ERROR: Failed to compile `vertex` shader
+        HINT: Run get_info_log() to get extra information
+
+Error on "vertex" shader
+0:36(33): error: `model_pos' undeclared
+0:36(27): error: cannot construct `float' from a non-numeric data type
+0:37(33): error: `model_pos' undeclared
+0:37(27): error: cannot construct `float' from a non-numeric data type
+
+core.exception.AssertError@example.d(15): Assertion failure
+```
+And just like that without any extra code we get so much information of what
+went wrong.
 
 ### Extra examples (On construction):
 
