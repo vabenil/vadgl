@@ -51,7 +51,8 @@ else {
 
 enum MAX_GL_VARIABLE_NAME = 256;
 
-auto trust(alias fnc, Args...)(Args args) @trusted => fnc(args);
+// NOTE: Currently used
+private auto trust(alias fnc, Args...)(Args args) @trusted => fnc(args);
 
 private {
     bool is_integral(GLType type) pure => (type >= GLType.BYTE && type <= GLType.UINT);
