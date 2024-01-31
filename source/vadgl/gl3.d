@@ -159,12 +159,12 @@ template to_gltype(T)
         mixin("enum GLType to_gltype = GLType.%s;".format(T.stringof.toUpper()));
 }
 
-/***
+/++
     Returns whether `param` is a parameter that can be passed to `glGetShaderIv`
 
     Params:
-        param - A GLParam or GLenum represting an parameter for a Shader or Program
-***/
+        param = A GLParam or GLenum represting an parameter for a Shader or Program
+ +/
 @safe nothrow pure
 bool is_shader_param(GLParam param)
 {
@@ -175,12 +175,12 @@ bool is_shader_param(GLParam param)
     );
 }
 
-/***
+/++
     Returns whether `param` is a parameter that can be passed to `glGetProgramiv`
 
     Params:
-        param - A parameter for a Shader or Program
-***/
+        param = A parameter for a Shader or Program
+ +/
 @safe nothrow pure
 bool is_program_param(GLParam param)
 {
@@ -207,12 +207,12 @@ private GLInternalError opengl_get_error()
     return GLInternalError.NO_ERROR;
 }
 
-/+++
+/++
     Run OpenGL function and log it on version `VADGL_DebugGLCalls`
     Use `gl_wrap` instead for error handling.
 
     Returns: The result of the opengl function call
-+++/
+ +/
 template gl_call(alias fnc)
 {
     private import std.traits   : isSomeFunction, ReturnType;
@@ -244,11 +244,12 @@ template gl_call(alias fnc)
     }
 }
 
-/+++
+/++
     Run opengl function `fnc_` and check for OpenGL errors
-    Returns: `Result!(GLInternalError, T`) where `T` is the return type of
+
+    Returns: `Result!(GLInternalError, T)` where `T` is the return type of
     `fnc_`
-+++/
+ +/
 template gl_wrap(alias fnc_)
 {
     private import std.traits   : isSomeFunction, ReturnType;
@@ -316,15 +317,17 @@ private bool member_in_enum(T)(T value) if (is(T == enum))
     }
 }
 
-/+++
+/++
     Return string representation of enum member.
     For example `enum_to_str(MyEnum.A)` return string `"A"`
 
     NOTES:
-        - this affects compilation times for big enums(>50 members)
-        - Doesn't work if enum has duplicates
-        - Doesn't work if `value` is not a valid enum member
-+++/
+    $(LIST
+        * this affects compilation times for big enums(>50 members)
+        * Doesn't work if enum has duplicates
+        * Doesn't work if `value` is not a valid enum member
+     )
+ +/
 @safe @nogc nothrow pure
 private string enum_to_str(T)(T value) if (is(T == enum))
 {
@@ -464,7 +467,7 @@ struct Shader
         return glresult(shader);
     }
 
-    /+++
+    /++
         Intialize shader with values.
 
         If you have already successfully called `glCreateShader`,
@@ -474,7 +477,7 @@ struct Shader
         ```
 
         To actually create a shader use `Shader.create_shader`
-    +++/
+     +/
     @safe @nogc nothrow
     this
     (string name, Type type, uint id, bool created=false,
@@ -596,6 +599,7 @@ struct Program
         ));
     }
 
+    // getters
     @property @safe @nogc {
         bool is_created() const => this.is_created_;
         bool is_attached() const => this.is_attached_;
@@ -638,25 +642,9 @@ struct Program
     @safe
     static void use_empty() => cast(void)Program().use();
 
-    // Wrapper to glAttachShader
-    // TODO: maybe check GL_ATTACHED_SHADERS to check if number of shaders
-    // attached is what we expect
-    /+++
-        attach Shader `s` to `this` Program
-        Returns: `GLResult!void` with `GLError`:
-            - `GLError.Flag.NO_ERROR`:
-                If attached correctly and there are no errors
-            - `GLError.Flag.INVALID_PROGRAM`:
-                if program hasn't been initialized properly
-            - `GLError.Flag.INVALID_SHADER`:
-                if shader hasn't been initialized
-                if shader hasn't been compiled succesfully
-            - `GLError.Flag.SHADER_ALREADY_ATTACHED`:
-                if Shader `s` has already been attached to program
-
-    +++/
+    /// Attach 1 shader use [Program.attach] instead
     @trusted
-    GLResult!void attach(Shader s)
+    private GLResult!void attach_(Shader s)
     {
         if (!this.is_created) {
             return GLError(GLError.Flag.INVALID_PROGRAM).glresult();
@@ -685,26 +673,60 @@ struct Program
         }
     }
 
+    // Wrapper to glAttachShader
+    // TODO: maybe check GL_ATTACHED_SHADERS to check if number of shaders
+    // attached is what we expect
+    /++
+        attach shaders to Program
+        Params:
+            shaders = `AliasSeq` of shaders
+
+        Returns: `GLResult!void` with `GLError`:
+        $(LIST
+            * `GLError.Flag.NO_ERROR`:
+                If attached correctly and there are no errors
+            * `GLError.Flag.INVALID_PROGRAM`:
+                if program hasn't been initialized properly
+            * `GLError.Flag.INVALID_SHADER`:
+                if shader hasn't been initialized
+                if shader hasn't been compiled succesfully
+            * `GLError.Flag.SHADER_ALREADY_ATTACHED`:
+                if Shader `s` has already been attached to program
+        )
+
+        Example:
+        ---
+        // Initialize program and shaders
+        Program program = ...
+        Shader vertex_shader = ...
+        Shader frag_shader = ...
+
+        // Call [gl_attach_shader] per shader and throw on error
+        program.attach(vertex_shader, frag_shader).throw_on_error;
+        ---
+     +/
     @trusted
-    GLResult!void attach(Args...)(Args shaders) if (Args.length > 1 && isShaderSeq!Args)
+    GLResult!void attach(Args...)(Args shaders) if (Args.length > 0 && isShaderSeq!Args)
     {
         foreach (shader; shaders) {
-            if (auto res = this.attach(shader)) return res;
+            if (auto res = this.attach_(shader)) return res;
         }
         return GLError.NO_ERROR.glresult();
     }
 
     // TODO: Maybe check extra cases
-    /+++
+    /++
         Link shaders attached to program
         Returns: `GLResult!void` with `GLError`:
-            - `GLError.Flag.NO_ERROR`:
+        $(LIST
+            * `GLError.Flag.NO_ERROR`:
                 if no opengl errors occurred
-            - `GLError.Flag.INVALID_PROGRAM`:
+            * `GLError.Flag.INVALID_PROGRAM`:
                 if program is valid
-            - `GLError.Flag.UNKNOWN_ERROR`:
+            * `GLError.Flag.UNKNOWN_ERROR`:
                 if something unexpected went wrong
-    +++/
+         )
+     +/
     @trusted
     GLResult!void link()
     {
@@ -772,25 +794,51 @@ struct Program
         return glresult(GLError.NO_ERROR);
     }
 
-    /// Wrapper to glUseProgram
+    /++
+        use `this` Program. Use `Program.use_empty()` to use null program
+
+        Returns: `GLResult!void` with GLError with error information if any
+     +/
     @trusted
     GLResult!void use() inout
     {
         // NOTE: in theory if this.id_ is 0 it shouldn't be an error in OpenGL
-        // but it really makes no sense to use an invalid program.
+        // but in really makes no sense to use an invalid program.
         // Make a `Program.stop_using()` or `Program.use_empty()`
-        return gl_wrap!glUseProgram(this.id_).to_glresult();
+        return gl_use_program(this.id_);
     }
 
     // Cool convinience function
     // Might be cool to use a variadic template here with `ref Shader`
     // this solutions is ok thought
-    /+++
+    /++
         Compile all `shaders`, attach each to program
         link and validate program.
 
+        $(WARNING
+            This function may do to much, it may get deleted or
+            renamed. Use the equivalent descripted in [#examples]:
+         )
+
         Returns: `GLResult!void` with error information if any
-    +++/
+        Example:
+        ---
+        program.prepare_and_attach(&vert_shader, &frag_shader).throw_on_error;
+        // Program read to use!
+        ---
+        is equivalent to:
+        ---
+        Program program;
+        Shader vert_sh, frag_shader; // our shaders;
+        foreach (shader; [&vert_sh, &frag_shader])
+            shader.compile().throw_on_error;
+
+        program.attach(vert_sh, frag_shader).throw_on_error;
+        program.link().throw_on_error;
+        program.validate().throw_on_error;
+        // Program ready to use!
+        ---
+     +/
     @safe
     GLResult!void prepare_and_attach(Shader*[] shaders ...)
     {
@@ -1088,6 +1136,9 @@ struct GLAttributeInfo
         => gl_vertex_attributeI_conf(loc, count, type, stride, offset_);
 }
 
+/++
+    Abstraction over uniforms
+ +/
 struct GLUniform
 {
     int loc; // TODO: perhaps remove `loc`
@@ -1116,11 +1167,11 @@ struct GLUniform
     }
 
     GLResult!void set_mat4(int n, const(float)[] mat, bool normalized=false)
-        => gl_set_uniform_mat4(this.loc, n, mat, normalized);
+        => set_uniform_mat4(this.loc, n, mat, normalized);
 
     // Will copy as much as possible of mat
     GLResult!void set_mat4(const(float)[] mat, bool normalized=false)
-        => gl_set_uniform_mat4(this.loc, mat, normalized);
+        => set_uniform_mat4(this.loc, mat, normalized);
 
     GLResult!void set_v(int N, T)(T[N] vec, int n = 1)
     if (T.stringof.among("float", "int", "uint") && N <= 4)
@@ -1131,16 +1182,18 @@ struct GLUniform
         => gl_set_uniform!N(this.loc, n, vec);
 }
 
-GLResult!void gl_set_uniform_mat4(int loc, const(float[]) mat, bool normalized=false)
+GLResult!void gl_uniform_matrix4fv(int loc, int n, bool normlized, const(float*) mat_ptr)
+    => gl_wrap!glUniformMatrix4fv(loc, n, normlized, mat_ptr).to_glresult();
+
+GLResult!void set_uniform_mat4(int loc, int n, const(float[]) mat, bool normalized=false)
+in(mat.length >= 16 * n)
+    => gl_uniform_matrix4fv(loc, n, normalized, mat.ptr);
+
+GLResult!void set_uniform_mat4(int loc, const(float[]) mat, bool normalized=false)
 {
     const int n = cast(int)(mat.length / 16);
-    return gl_set_uniform_mat4(loc, n, mat, normalized);
+    return set_uniform_mat4(loc, n, mat, normalized);
 }
-
-GLResult!void gl_set_uniform_mat4(int loc, int n, const(float[]) mat, bool normalized=false)
-in(mat.length >= 16 * n)
-    => gl_wrap!glUniformMatrix4fv(loc, n, normalized, mat.ptr).to_glresult();
-
 
 private template shortBaseTypeNames(T)
 {
@@ -1253,33 +1306,64 @@ template glattribute(T)
         => GLAttributeInfo(loc, type, N * M, offset_, normalized);
 }
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 GLResult!uint gl_create_shader(Shader.Type type)
         => gl_wrap!glCreateShader(type).to_glresult();
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 GLResult!void gl_shader_source(uint id, int count, const(char**) strings, const(int*) lengths)
     => gl_wrap!glShaderSource(id, count, strings, lengths).to_glresult();
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 GLResult!void gl_shader_source(uint id, const(char*) src_c_str, int length)
     => gl_shader_source(id, 1, &src_c_str, &length);
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow GLResult!void gl_shader_source(uint id, const(char[]) src)
     => gl_shader_source(id, src.ptr, cast(int)src.length);
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 GLResult!void gl_compile_shader(uint id)
     => gl_wrap!glCompileShader(id).to_glresult();
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 uint gl_create_program()
     => gl_call!glCreateProgram(); // doesn't generate GLError
 
+/++
+    Wrapper to `glCreateShader`
+ +/
+nothrow
+GLResult!void gl_use_program(uint program_id)
+    => gl_wrap!glUseProgram(program_id).to_glresult();
+
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 GLResult!void gl_attach_shader(uint program_id, uint shader_id)
     => gl_wrap!glAttachShader(program_id, shader_id).to_glresult();
 
+/++
+    Wrapper to `glCreateShader`
+ +/
 nothrow
 GLResult!void gl_link_program(uint program_id)
     => gl_wrap!glLinkProgram(program_id).to_glresult();
@@ -1359,51 +1443,89 @@ nothrow
 static GLResult!int gl_get_attribute_location(string name, int program_id)
     => gl_wrap!glGetAttribLocation(program_id, name.toStringz).to_glresult();
 
+/++
+    Wrapper to `glGetUniformLocation`
+ +/
+nothrow
+static GLResult!int gl_get_uniform_location(uint program_id, const(char*) name)
+    => gl_wrap!glGetUniformLocation(program_id, name).to_glresult();
+
+/*
+    NOTE: The only way I could make this @nogc is by adding an arbitrary maximum
+    length, allocating a buffer of that size and reserving the last space for
+    '\0'.
+ */
+/++
+    Wrapper to `glGetUniformLocation`
+
+    $(WARNING
+        This function calls `toStringz` which mayh allocate. Use the
+        `const(char*)` overload of this function to avoid allocations
+    )
+ +/
 nothrow
 static GLResult!int gl_get_uniform_location(uint program_id, string name)
-    => gl_wrap!glGetUniformLocation(program_id, name.toStringz).to_glresult();
+    => gl_get_uniform_location(program_id, name.toStringz);
 
 // TODO: Replace GLEnum with my own `GLPrimitive` type
-/*
-NOTE:
-because I'm using size_t instead of an integer GL_INVALID_VALUE cannot happen
-here, but there might be an error if count is >= 2^63
-*/
+/++
+    Wrapper to `glDrawArrays`
+ +/
 nothrow
 static GLResult!void gl_draw_arrays(GLenum mode, uint first, int count)
     => gl_wrap!glDrawArrays(mode, first, count).to_glresult();
 
+/++
+    Wrapper to `glDrawElements`
+ +/
 nothrow
 static GLResult!void gl_draw_elements(GLenum mode, int count, GLType type, size_t indices)
     => gl_wrap!glDrawElements(mode, count, type, cast(void*)indices).to_glresult();
 
+/++
+    Wrapper to `glDrawRangeElements`
+ +/
 nothrow
 GLResult!void gl_draw_range_elements
 (GLenum mode, uint start, uint end, int count, GLType type, size_t offset_)
     => gl_wrap!glDrawRangeElements(mode, start, end, count, type, cast(void*)offset_).to_glresult();
 
-// Only works with OpenGL version >= 3.1
+/++
+    Wrapper to `glDrawArraysInstanced`
+
+    $(NOTE Requires OpenGL version >= 3.1)
+ +/
 nothrow
 GLResult!void gl_draw_arrays_instanced(GLenum mode, int first, int count, int prim_count)
     => gl_wrap!glDrawArraysInstanced(mode, first, count, prim_count).to_glresult();
 
-// Only works with OpenGL version >= 3.1
+/++
+    Wrapper to `glDrawElementsInstanced`
+ +/
 nothrow
 GLResult!void gl_draw_elements_instanced
 (GLenum mode, int count, GLType type, void* indicies_ptr, int prim_count)
     => gl_wrap!glDrawElementsInstanced(mode, count, type, indicies_ptr, prim_count)
             .to_glresult();
 
+/++
+    Wrapper to `glClearColor`
+ +/
 @trusted nothrow
 void gl_clear_color(float r=0.0, float g=0.0, float b=0.0, float a=1.0)
     => gl_call!glClearColor(r, g, b, a);
 
+
+/++
+    Wrapper to `glClear`
+ +/
 @trusted nothrow
 GLResult!void gl_clear(GLbitfield mask)
     => gl_wrap!glClear(mask).to_glresult();
 
 // TODO: Handle errors by returning GLResult
 // TODO: Could use `Args...` instead of T to bind mutiple stuff at the same time
+/// Not sure about this, may get removed later
 void gl_with(alias fnc, T)(T globject)
 {
     import std.meta : anySatisfy;
@@ -1419,6 +1541,16 @@ void gl_with(alias fnc, T)(T globject)
     else static if (is(T == Program)) Program.use_empty();
 }
 
+/*
+    TODO: This is not @nogc because of `fromStringz` and `idup` anway, there's
+    no @nogc way to return a string here. Provide an override for whomever
+    might want a @nogc version
+*/
+/++
+    Call `glGet{Program|Shader}InfoLog` and return result as a string
+
+    $(WARNING This function allocates)
+ +/
 @trusted
 GLResult!string get_info_log(T)(ref const(T) self)
 if (is(T == Shader) || is(T == Program))
