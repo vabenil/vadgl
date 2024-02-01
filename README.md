@@ -42,9 +42,9 @@ uint vert_hs =
 ```
 With the additional benefit that if an error happens. You will get an error
 message like this:
-```
-[GL_ERROR]: glCreateShader: INVALID_ENUM
-```
+
+`[GL_ERROR]: glCreateShader: INVALID_ENUM`
+
 #### Using abstractions
 Using `Shader` and `Program` abstractions you can create a Program
 like so:
