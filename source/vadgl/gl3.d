@@ -843,7 +843,7 @@ struct Program
     GLResult!void prepare_and_attach(Shader*[] shaders ...)
     {
         foreach (Shader *shader; shaders) {
-            if (shader.is_compiled) {
+            if (!shader.is_compiled) {
                 if (auto res = shader.compile()) return res.error.append_fnc().glresult();
             }
 
