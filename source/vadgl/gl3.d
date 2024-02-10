@@ -1040,6 +1040,7 @@ struct VBufferObject
     // This could only fail if target is invalid. But that's ok
     static void disable(GLenum target) @safe => cast(void)VBufferObject().bind(target);
 
+    // Allocates and copys `data` to a gpu buffer
     @trusted
     static GLResult!void set_data(GLenum target, size_t size, const(void*) data, GLenum usage)
     {
@@ -1073,12 +1074,25 @@ struct VBufferObject
         /* if (auto res = this.bind(GL_ARRAY_BUFFER)) */
         /*     return res; */
 
+        /*
+            NOTE: I'm using `GL_ARRAY_BUFFER` instead of the buffer type because
+            for copying data, because it doesn't make sense to use something else
+            anyway. Though I guess this would require me to also bind which may
+            cause a problem. But binding just makes the most sense here
+        */
         auto res = VBufferObject.set_data(GL_ARRAY_BUFFER, size, data, usage);
 
         /* VBufferObject.disable(GL_ARRAY_BUFFER); */
 
         return res;
     }
+    // Copy `data` into buffer + offset
+    @trusted
+    GLResult!void set_sub_data(size_t offset, size_t size, const(void*) data)
+    {
+        return gl_buffer_sub_data(GL_ARRAY_BUFFER, offset, size, data);
+    }
+
 
     // Should be safe
     @trusted
