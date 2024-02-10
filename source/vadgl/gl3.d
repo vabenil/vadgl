@@ -1043,7 +1043,7 @@ struct VBufferObject
     @trusted
     static GLResult!void set_data(GLenum target, size_t size, const(void*) data, GLenum usage)
     {
-        return gl_wrap!glBufferData(target, size, data, usage).to_glresult();
+        return gl_buffer_data(target, size, data, usage);
     }
 
     @property uint id() @safe const => this.id_;
@@ -1305,6 +1305,14 @@ template glattribute(T)
     GLAttributeInfo glattribute(uint loc, size_t offset_, bool normalized=false)
         => GLAttributeInfo(loc, type, N * M, offset_, normalized);
 }
+
+nothrow
+GLResult!void gl_buffer_data(GLenum target, GLsizeiptr size, const(void*) data, GLenum usage)
+    => gl_wrap!glBufferData(target, size, data, usage).to_glresult();
+
+nothrow
+GLResult!void gl_buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, const(void*) data)
+    => gl_wrap!glBufferSubData(target, offset, size, data).to_glresult();
 
 /++
     Wrapper to `glCreateShader`
